@@ -1,0 +1,138 @@
+<!DOCTYPE HTML> 
+<html lang="en"> 
+<head>
+<title>Hello Mesh </title>
+<meta charset="utf-8"> 
+</head>
+
+    
+<script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexNormal;
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexColor;
+   
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform mat3 uNMatrix;
+    
+    uniform vec3 uLightPosition;
+    uniform vec3 uAmbientLightColor;
+    uniform vec3 uDiffuseLightColor;
+    uniform vec3 uSpecularLightColor;
+
+    uniform float uTeapot;
+    uniform float uReflect;
+    uniform float uRefract;
+    
+    uniform vec3 uKAmbient;
+    uniform vec3 uKDiffuse;
+    uniform vec3 uKSpecular;
+    const float uShininess = 20.0;
+    
+    varying vec4 vColor;
+
+    varying float vObject;
+    varying float vReflect;
+    varying float vRefract;
+
+    varying vec3 vVertexNormal;
+    varying vec3 vReflectM;
+    varying vec3 vRefractM;
+
+    void main(void) {
+        vObject = uTeapot;
+        vRefract = uRefract;
+        vReflect = uReflect;
+    if(vObject == 1.0){
+        vVertexNormal = aVertexNormal;
+        
+    }
+    else{
+            vec4 vertexPositionEye4 = uMVMatrix * vec4(aVertexPosition, 1.0);
+            vec3 vertexPositionEye3 = vertexPositionEye4.xyz / vertexPositionEye4.w;
+            vec3 normalEye = normalize(uNMatrix * aVertexNormal);
+            vec3 viewVectorEye = -normalize(vertexPositionEye3);
+
+        if  (uReflect + uRefract == 0.0){
+            vec3 lightEye=(vec4(uLightPosition,1)).xyz;
+            vec3 vectorToLightSource = normalize(lightEye - vertexPositionEye3);
+            float diffuseLightWeightning = max(dot(normalEye, 
+                                            vectorToLightSource), 0.0);
+            vec3 reflectionVector = normalize(reflect(-vectorToLightSource, 
+                                                    normalEye));
+            float rdotv = max(dot(reflectionVector, viewVectorEye), 0.0);
+            float specularLightWeightning = pow(rdotv, uShininess);
+            vColor = vec4(((aVertexColor * uAmbientLightColor) + (aVertexColor * uDiffuseLightColor * diffuseLightWeightning) + 
+                (aVertexColor * uSpecularLightColor * specularLightWeightning)), 1.0);
+            vVertexNormal = aVertexNormal;
+        }
+
+        if(vReflect == 1.0){
+            viewVectorEye = -viewVectorEye;
+            vec3 reflectEye = normalize(reflect(viewVectorEye, normalEye));
+            vReflectM = normalize(reflectEye * uNMatrix);
+        }
+        
+        if(uRefract == 1.0){
+            viewVectorEye = -viewVectorEye;
+            vec3 refractEye = normalize(refract(viewVectorEye, normalEye, 1.1));
+            vRefractM = normalize(refractEye * uNMatrix);
+        }
+
+
+    }
+    gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+}
+</script>
+  
+<script id="shader-fs" type="x-shader/x-fragment">
+precision mediump float;
+
+
+uniform samplerCube uCubeSampler;
+varying float vObject;
+varying float vReflect;
+varying float vRefract;
+
+varying vec3 vVertexNormal;
+varying vec3 vReflectM;
+varying vec3 vRefractM;
+varying vec4 vColor;
+
+void main(void) {
+    if(vObject == 1.0){
+        gl_FragColor = textureCube(uCubeSampler, vVertexNormal);
+    }
+    else{
+        if(vReflect + vRefract == 0.0){
+            gl_FragColor = vColor;
+        }
+        if(vReflect == 1.0){
+            gl_FragColor = textureCube(uCubeSampler, vReflectM);
+        }
+        if(vRefract == 1.0){
+            gl_FragColor = textureCube(uCubeSampler, vRefractM);
+        }
+    }
+ }
+</script>
+
+<script src="gl-matrix-min.js"></script> 
+<script src="webgl-utils.js"></script>  
+<script src="HelloMesh.js"></script>   
+<body onload="startup();">
+ <canvas id="myGLCanvas" width="800" height="800"></canvas>
+    <!-- <form id="input_form"> -->
+        <fieldset>
+            Hi,TA or someone grades it, it may crash on GOOGLE, but works well with other expoler!!</p>
+            Press the "ArrowRight/Left/Up/Down" to control the view direction</p>
+            Press the "A/D" to control the teapot's rotation</p>
+            <legend>Mode of teapot</legend>
+            <button onclick="reflect()">Reflect</button><br>
+            <button onclick="refract()">Refract</button><br>
+            <button onclick="origin()">Green</button><br>
+        </fieldset>
+        <!-- </form> -->
+</body>
+
+</html>
